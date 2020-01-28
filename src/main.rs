@@ -1,6 +1,8 @@
 extern crate actix_rt;
+extern crate actix_web;
 
 use actix_web::{web, get, HttpServer, App, HttpResponse, Responder};
+use std::sync::Mutex;
 
 struct AppState {
     app_name: String,
@@ -17,9 +19,9 @@ async fn main() -> std::io::Result<()> {
             .route("again", web::get().to(index2))
             .service(index3)
     })
-        .bind("0.0.0.0:9101")?
-        .run()
-        .await
+    .bind("0.0.0.0:9101")?
+    .run()
+    .await
 }
 
 async fn index() -> impl Responder {
