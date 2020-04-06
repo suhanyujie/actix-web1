@@ -21,6 +21,7 @@ use log::info;
 use app::middleware::simple_middleware;
 use app::libs::logger;
 use app::common::response::MyRes;
+use app::services::article;
 
 struct AppState {
     app_name: String,
@@ -46,7 +47,10 @@ async fn main() -> std::io::Result<()> {
             })
             .route("/", web::get().to(index))
             .route("again", web::get().to(index2))
-            .service(index3)
+            .service(
+                web::scope("/article")
+                    .route("", web::post().to(article::article::save_article))
+            )
     });
     server = if let Some(l) = listenfd.take_tcp_listener(0).unwrap() {
         server.listen(l)?

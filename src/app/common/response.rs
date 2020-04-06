@@ -4,8 +4,8 @@ extern crate log;
 extern crate serde;
 
 use actix_web::{error, get, web, App, Error, HttpRequest, HttpResponse, HttpServer, Responder};
-use futures::future::{ready, Ready, FutureExt};
 use failure::Fail;
+use futures::future::{ready, FutureExt, Ready};
 use serde::Serialize;
 
 // 自定义响应类型
@@ -74,7 +74,7 @@ impl error::ResponseError for BusinessError {
 }
 
 #[derive(Fail, Debug)]
-enum BusinessError {
+pub enum BusinessError {
     #[fail(display = "Validation error on field: {}", field)]
     ValidationError { field: String },
     #[fail(display = "An internal error occured. Please try again later.")]
