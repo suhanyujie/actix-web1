@@ -5,53 +5,32 @@ extern crate serde;
 extern crate futures;
 extern crate serde_json;
 extern crate actix_service;
+extern crate log;
+extern crate failure;
 
 mod app;
 
-use actix_web::{web, get, HttpServer, App, HttpRequest, HttpResponse, Responder, Error};
+use actix_web::{web, get, error, HttpServer, App, HttpRequest, HttpResponse, Responder, Error};
 use std::sync::Mutex;
 use listenfd::ListenFd;
-use serde::{Serialize};
+use serde::{Serialize, Deserialize};
 use std::collections::HashMap;
 use futures::future::{ready, Ready, FutureExt};
 use actix_service::Service;
+use log::info;
 use app::middleware::simple_middleware;
 use app::libs::logger;
+use app::common::response::MyRes;
 
 struct AppState {
     app_name: String,
-}
-
-// 自定义响应类型
-#[derive(Serialize)]
-struct MyRes<T> 
-where
-    T: Serialize
-{
-    err_code: i32,
-    err_msg: String,
-    results: Option<T>,
-}
-
-impl<T> Responder for MyRes<T>
-where
-    T: Serialize
-{
-    type Error = Error;
-    type Future = Ready<Result<HttpResponse, Error>>;
-
-    fn respond_to(self, _req: &HttpRequest) -> Self::Future {
-        let body = serde_json::to_string(&self).unwrap();
-        ready(Ok(HttpResponse::Ok()
-                    .content_type("application/json")
-                    .body(body)))
-    }
 }
 
 #[actix_rt::main]
 async fn main() -> std::io::Result<()> {
     // 初始化日志
     logger::init_logger();
+    info!("http server start...");
     let mut listenfd = ListenFd::from_env();
     let mut server = HttpServer::new(|| {
         App::new()
