@@ -8,9 +8,10 @@ extern crate serde;
 use crate::app::common::response;
 use actix_web::{web, HttpResponse};
 use bson::oid::ObjectId;
+use bson::{decode_document, encode_document, Bson, Document, doc};
 use lazy_static::lazy_static;
 use log::*;
-use mongodb::{Client, Collection};
+use mongodb::{Client, Collection, Cursor};
 use serde::{Deserialize, Serialize};
 
 type BusinessError = response::BusinessError;
@@ -46,6 +47,53 @@ type SimpleResp = Result<HttpResponse, BusinessError>;
 pub async fn save_article(article: web::Json<Article>) -> SimpleResp {
     let article: Article = article.into_inner();
 
-    info!("save article, {:?}", article);
-    response::MyRes::ok(article.title).to_json()
+    info!("save article, {:?}", &article);
+    // write into db
+    let mut d = bson::to_bson(&article)
+            .map(|x| x.as_document().unwrap().to_owned())
+            .unwrap();
+    info!("{}", &d);
+    d.remove("_id");
+    info!("{}", &d);
+    let result = collection(Article::TABLE_NAME).insert_one(d, None);
+    info!("{:?}", &result);
+    match result {
+        Ok(rs) => {
+            let new_id: String = rs.inserted_id.as_object_id().unwrap().to_hex();
+            info!("save article, id={}", new_id);
+            response::MyRes::ok(new_id).to_json()
+        }
+        Err(e) => {
+            error!("save_article error, {}", e);
+            Err(BusinessError::InternalError)
+        }
+    }
 }
+
+pub trait CursorVec {
+    fn to_vec<'a, T: Serialize + Deserialize<'a>>(&mut self) -> Vec<T>;
+}
+
+impl CursorVec for Cursor {
+    fn to_vec<'a, T: Serialize + Deserialize<'a>>(&mut self) -> Vec<T> {
+        self.map(|item|{
+            let doc: Document = item.unwrap();
+            let bson = bson::Bson::Document(doc);
+            return bson::from_bson(bson).unwrap();
+        }).collect()
+    }
+}
+
+pub async fn list_article() -> SimpleResp {
+    let coll = collection("article");
+    let cursor = coll.find(Some(doc!{}), None);
+    let result = cursor.map(|mut x| x.to_vec::<Article>());
+    match result {
+        Ok(list) => response::MyRes::ok(list).to_json(),
+        Err(err) => {
+            error!("list article error, {}", err);
+            return Err(BusinessError::InternalError);
+        }
+    }
+}
+

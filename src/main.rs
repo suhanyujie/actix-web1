@@ -48,8 +48,9 @@ async fn main() -> std::io::Result<()> {
             .route("/", web::get().to(index))
             .route("again", web::get().to(index2))
             .service(
-                web::scope("/article")
+                web::scope("/articles")
                     .route("", web::post().to(article::article::save_article))
+                    .route("", web::get().to(article::article::list_article))
             )
     });
     server = if let Some(l) = listenfd.take_tcp_listener(0).unwrap() {
