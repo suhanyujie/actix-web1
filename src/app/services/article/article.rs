@@ -12,7 +12,7 @@ use bson::{decode_document, encode_document, Bson, Document, doc};
 use lazy_static::lazy_static;
 use log::*;
 use mongodb::{Client, Collection, Cursor};
-use serde::{Deserialize, Serialize};
+use serde::{Deserialize, Serialize, Serializer};
 
 type BusinessError = response::BusinessError;
 
@@ -32,10 +32,21 @@ fn collection(coll_name: &str) -> Collection {
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct Article {
+    #[serde(serialize_with = "serialize_object_id")]
     _id: Option<ObjectId>,
     title: String,
     author: String,
     content: String,
+}
+
+pub fn serialize_object_id<S>(oid: &Option<ObjectId>, s: S) -> Result<S::Ok, S::Error> 
+where
+    S: Serializer 
+{
+    match oid.as_ref().map(|x| x.to_hex()) {
+        Some(v) =>s.serialize_str(&v),
+        None => s.serialize_none(),
+    }
 }
 
 impl Article {
@@ -89,11 +100,18 @@ pub async fn list_article() -> SimpleResp {
     let cursor = coll.find(Some(doc!{}), None);
     let result = cursor.map(|mut x| x.to_vec::<Article>());
     match result {
-        Ok(list) => response::MyRes::ok(list).to_json(),
+        Ok(list) => {
+            let _a = list.iter().map(|article| {
+                let id = article._id.as_ref().unwrap();
+                dbg!(&id);
+                id
+            });
+            
+            response::MyRes::ok(list).to_json()
+        },
         Err(err) => {
             error!("list article error, {}", err);
             return Err(BusinessError::InternalError);
         }
     }
 }
-
